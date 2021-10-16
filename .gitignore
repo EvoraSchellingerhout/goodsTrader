@@ -6,12 +6,16 @@ __pycache__/
 # C extensions
 *.so
 
+# sqlite3 databses (just in case)
+**.sqlite
+
 # Distribution / packaging
 .Python
 build/
 develop-eggs/
 dist/
 downloads/
+data/
 eggs/
 .eggs/
 lib64/
@@ -126,3 +130,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+data/main.sqlite
