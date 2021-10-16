@@ -5,7 +5,7 @@ class GTDatabase:
 
     def __init__(self, path):
         try:
-            self.DB = sqlite3.connection(path, check_same_thread=False)
+            self.DB = sqlite3.connect(path, check_same_thread=False)
         except sqlite3.Error as e:
             print(f"Error: {e}, has occured durring connection creation")
         
@@ -14,7 +14,7 @@ class GTDatabase:
 
         try:
             DBCursor.execute(query, parameters)
-            DBCursor.commit()
+            self.DB.commit()
         except sqlite3.Error as e:
             print(f"Error: {e}, has occured durring command execution")
             return False
