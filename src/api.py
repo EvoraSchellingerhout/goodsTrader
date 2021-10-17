@@ -22,10 +22,17 @@ class account(Resource):
         return gameInstance.createAccount(username)
     
     #attempts to get a users info with username and secure token
-    def get(sefl, username):
+    def get(self, username):
         args = parser.parse_args()
         userToken = args['token']
         return gameInstance.getAccountInfo(username, userToken)
+
+class genTransports(Resource):
+    
+    def post(self, username):
+        args = parser.parse_args()
+        userToken = args['token']
+        return gameInstance.purchaseTransport(username, userToken)
 
 class admin(Resource):
 
@@ -36,6 +43,7 @@ class admin(Resource):
 #Creates the account pathing for the api
 api.add_resource(account, '/account/<string:username>')
 api.add_resource(admin, '/admin/<string:adminToken>')
+api.add_resource(genTransports, '/<string:username>/transports')
 
 #enables developer mode (TURN OFF IN PROD!!!)
 if __name__ == '__main__':
