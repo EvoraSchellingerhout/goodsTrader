@@ -239,34 +239,10 @@ class game:
         else:
             searchResults = searchResults[0]
     
-    """tempDict = {
-            self.symbol: {
-                "node": self,
-                "name": self.name,
-                "type": self.type,
-                "rate": self.rate,
-                "cost": self.cost,
-                "symbol": self.symbol,
-                "inventory": self.inventory,
-                "inventoryMax": self.inventoryMax
-            }
-        }"""
-    "(self, name, type, rate, cost, symbol, inventory, inventoryMax, rLoc, tLoc, prodInventory=None)"
     def genHUBNode(self):
         HUBNode = nodes.node("H.U.B", -1, 0, 0, "HUB", 0, 0, 0, 0)
-        HUBDIct = {
-            HUBNode.symbol: {
-                "node": HUBNode,
-                "name": HUBNode.name,
-                "type": HUBNode.type,
-                "cost": HUBNode.cost,
-                "symbol": HUBNode.symbol,
-                "inventory": HUBNode.inventory,
-                "inventoryMax": HUBNode.inventoryMax
-            }
-        }
 
-        return HUBDIct
+        return HUBNode.printNodeDict()
     
     def readInNodes(self):
         nodeRetrivalQuery = "SELECT * from nodes"
@@ -329,5 +305,81 @@ class game:
         if genNum - nodeCount > 0:
             for i in range(genNum - nodeCount):
                 tempNodeDict = {**self.generateNode(), **tempNodeDict}
-        tempNodeDict = {**self.genHUBNode(), **tempNodeDict}
+        tempNodeDict = {**tempNodeDict, **self.genHUBNode()}
         return tempNodeDict        
+
+    def getNodes(self, symbol=None, type=None):
+        safeNodeDict = {}
+        if symbol == None:
+            if type == None:
+                for node in self.nodeDict:
+                    tempNodeDict = {
+                        self.nodeDict[node]["symbol"]: {
+                            "name": self.nodeDict[node]["name"],
+                            "type":self.nodeDict[node]["type"],
+                            "rate": self.nodeDict[node]["rate"],
+                            "cost": self.nodeDict[node]["cost"],
+                            "symbol": self.nodeDict[node]["symbol"],
+                            "inventory": self.nodeDict[node]["inventory"],
+                            "maxInventory": self.nodeDict[node]["inventoryMax"]
+                        }
+                    }
+                    safeNodeDict = {**tempNodeDict, **safeNodeDict}
+            else:
+                for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].type == type:
+
+                        tempNodeDict = {
+                            self.nodeDict[node]["symbol"]: {
+                                "name": self.nodeDict[node]["name"],
+                                "type":self.nodeDict[node]["type"],
+                                "rate": self.nodeDict[node]["rate"],
+                                "cost": self.nodeDict[node]["cost"],
+                                "symbol": self.nodeDict[node]["symbol"],
+                                "inventory": self.nodeDict[node]["inventory"],
+                                "maxInventory": self.nodeDict[node]["inventoryMax"]
+                            }
+                        }
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass
+        elif type == None:
+            for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].symbol == symbol:
+
+                        tempNodeDict = {
+                            self.nodeDict[node]["symbol"]: {
+                                "name": self.nodeDict[node]["name"],
+                                "type":self.nodeDict[node]["type"],
+                                "rate": self.nodeDict[node]["rate"],
+                                "cost": self.nodeDict[node]["cost"],
+                                "symbol": self.nodeDict[node]["symbol"],
+                                "inventory": self.nodeDict[node]["inventory"],
+                                "maxInventory": self.nodeDict[node]["inventoryMax"]
+                            }
+                        }
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass
+        else:
+            for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].type == type and self.nodeDict[node]["node"].symbol == symbol:
+
+                        tempNodeDict = {
+                            self.nodeDict[node]["symbol"]: {
+                                "name": self.nodeDict[node]["name"],
+                                "type":self.nodeDict[node]["type"],
+                                "rate": self.nodeDict[node]["rate"],
+                                "cost": self.nodeDict[node]["cost"],
+                                "symbol": self.nodeDict[node]["symbol"],
+                                "inventory": self.nodeDict[node]["inventory"],
+                                "maxInventory": self.nodeDict[node]["inventoryMax"]
+                            }
+                        }
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass
+
+
+        
+        return safeNodeDict

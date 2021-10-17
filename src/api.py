@@ -13,6 +13,8 @@ gameInstance = game.game(gameAdminToken)
 #setup the argument paerser for api usage
 parser = reqparse.RequestParser()
 parser.add_argument("token", type=str, help='Unique token used for each account')
+parser.add_argument("symbol", type=str, help="Unique symbol for each node")
+parser.add_argument("type", type=int, help="Node type indicator")
 
 #sets the account class
 class createAccount(Resource):
@@ -27,6 +29,14 @@ class account(Resource):
         args = parser.parse_args()
         userToken = args['token']
         return gameInstance.getAccountInfo(userToken)
+
+class nodes(Resource):
+
+    def get(self):
+        args = parser.parse_args()
+        symbol = args["symbol"]
+        type = args['type']
+        return gameInstance.getNodes(symbol, type)
 
 class genTransports(Resource):
     
@@ -59,6 +69,7 @@ api.add_resource(account, '/account/')
 api.add_resource(admin, '/admin/<string:adminToken>')
 api.add_resource(genTransports, '/account/transports/')
 api.add_resource(specificTransports, "/account/transports/<string:transToken>")
+api.add_resource(nodes, "/nodes/")
 
 #enables developer mode (TURN OFF IN PROD!!!)
 if __name__ == '__main__':
