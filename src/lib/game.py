@@ -13,6 +13,8 @@ class game:
         self.adminToken = adminToken
         self.DB = None
         self.initilizeDatabases()
+        self.nodeDict = {}
+        self.nodeDict = self.generateNodes(100)
     
     def tick(self):
         for node in self.nodeDict:
@@ -67,7 +69,7 @@ class game:
             speed INTEGER NOT NULL,
             rLoc INTEGER NOT NULL,
             tLoc INTEGER NOT NULL,
-            status INTEGER
+            status TEXT NOT NULL
         );
         """
         self.DB.executeQuery(createTransTableQuery)
@@ -103,7 +105,7 @@ class game:
         }
         return returnDict
 
-    def getTrans(self, userToken):
+    def getAccountTrans(self, userToken):
         transSearchQuery = "SELECT * FROM transports WHERE userToken = (?)"
         parameters = [userToken]
         searchResults = self.DB.printQuery(transSearchQuery, parameters)
@@ -115,25 +117,22 @@ class game:
                 tempTransList.append(tran[2])
             return tempTransList
 
-    def getAccountInfo(self, username, userToken):
-        accountSearchQuery = "SELECT * FROM accounts WHERE username = (?)"
-        parameters = [username]
+    def getAccountInfo(self, userToken):
+        accountSearchQuery = "SELECT * FROM accounts WHERE userToken = (?)"
+        parameters = [userToken]
         searchResults = self.DB.printQuery(accountSearchQuery, parameters)
         if searchResults == None:
-            return {"Error": f"Username is not valid"}
+            return {"Error": f"UserToken does not exist"}
         else:
             searchResults = searchResults[0]
-            if searchResults[2] == userToken:
-                return {
-                    "User": {
-                        "username": searchResults[1],
-                        "userToken": searchResults[2],
-                        "cash": searchResults[3],
-                        "transports": self.getTrans(userToken)
-                    }
+            return {
+                "User": {
+                    "username": searchResults[1],
+                    "userToken": searchResults[2],
+                    "cash": searchResults[3],
+                    "transports": self.getAccountTrans(userToken)
                 }
-            else:
-                return {"Error": f"UserToken is invalid for {username}"}
+            }
     
     def accountUpdate(self, userToken, newCash):
         updateAccountQuery = f"""
@@ -162,29 +161,112 @@ class game:
             1,
             0,
             0,
-            0
+            "Stopped"
         ]
 
         self.DB.executeQuery(transInsertQuery, parameters)
         
-    def purchaseTransport(self, username, userToken):
-        userSearchQuery = "SELECT * FROM accounts WHERE username = (?)"
-        parameters = [username, ]
+    def purchaseTransport(self, userToken):
+        userSearchQuery = "SELECT * FROM accounts WHERE userToken = (?)"
+        parameters = [userToken]
         searchResults = self.DB.printQuery(userSearchQuery, parameters)
         print(searchResults)
         if searchResults == None:
-            return {"Error": "Username is not valid"}
+            return {"Error": "UserToken does not exist"}
         else:
             searchResults = searchResults[0]
-            if searchResults[2] == userToken:
-                if searchResults[3] >= 10000:
-                    self.createNewTrans(userToken)
-                    self.accountUpdate(userToken, searchResults[3] - 10000)
-                    return self.getAccountInfo(username, userToken)
-                else:
-                    return {"Error": "Not enough cash"}
+            if searchResults[3] >= 10000:
+                self.createNewTrans(userToken)
+                self.accountUpdate(userToken, searchResults[3] - 10000)
+                return self.getAccountInfo(userToken)
             else:
-                return {"Error": f"UserToken is invalid for {username}"}
+                return {"Error": "Not enough cash"}
+    
+    def getTrans(self, userToken, transToken):
+        transSearchQuery = "SELECT * FROM transports WHERE transToken = (?)"
+        parameters = [transToken]
+        searchResults = self.DB.printQuery(transSearchQuery, parameters)
+        #print(searchResults)
+        if searchResults == None or searchResults == []:
+            return {"Error": "Transport does not exist"}
+        else:
+            searchResults = searchResults[0]
+            return {
+                "Transport": {
+                    "userToken": searchResults[1],
+                    "id": searchResults[2],
+                    "inventory": searchResults[3],
+                    "maxInventory": searchResults[4],
+                    "speed" : searchResults[5],
+                    "rLoc": searchResults[6],
+                    "tLoc": searchResults[7],
+                    "status": searchResults[8],
+                }
+            }
+    
+    def getAllTrans(self, userToken):
+        transSearchQuery = "SELECT * FROM transports WHERE userToken = (?)"
+        parameters = [userToken]
+        searchResults = self.DB.printQuery(transSearchQuery, parameters)
+        #print(searchResults)
+        if searchResults == None:
+            return {"Error": "Either Token is bad or no transports exist for the account"}
+        else:
+            tranDict = {}
+            for tran in searchResults:
+                tempTranDict = {
+                    tran[2]: {
+                        "id": tran[2],
+                        "inventory": tran[3],
+                        "maxInventory": tran[4],
+                        "speed": tran[5],
+                        "rLoc": tran[6],
+                        "tLoc": tran[7],
+                        "status": tran[8]
+                    }
+                }
+                print(tempTranDict)
+                tranDict = {**tempTranDict, **tranDict}
+            #print(tranDict)
+            return tranDict
+    
+    def transTravel(self, userToken, transToken):
+        tranSearchQuery = "SELECT * FROM transports WHERE transToken = (?) AND userToken = (?)"
+        parameters = [transToken, userToken]
+        searchResults = self.DB.printQuery(tranSearchQuery, parameters)
+        if searchResults == None or searchResults == []:
+            return {"Error": "UserToken or transToken is invalid"}
+        else:
+            searchResults = searchResults[0]
+    
+    """tempDict = {
+            self.symbol: {
+                "node": self,
+                "name": self.name,
+                "type": self.type,
+                "rate": self.rate,
+                "cost": self.cost,
+                "symbol": self.symbol,
+                "inventory": self.inventory,
+                "inventoryMax": self.inventoryMax
+            }
+        }"""
+    "(self, name, type, rate, cost, symbol, inventory, inventoryMax, rLoc, tLoc, prodInventory=None)"
+    def genHUBNode(self):
+        HUBNode = nodes.node("H.U.B", -1, 0, 0, "HUB", 0, 0, 0, 0)
+        HUBDIct = {
+            HUBNode.symbol: {
+                "node": HUBNode,
+                "name": HUBNode.name,
+                "type": HUBNode.type,
+                "cost": HUBNode.cost,
+                "symbol": HUBNode.symbol,
+                "inventory": HUBNode.inventory,
+                "inventoryMax": HUBNode.inventoryMax
+            }
+        }
+
+        return HUBDIct
     
     def readInNodes(self):
         nodeRetrivalQuery = "SELECT * from nodes"
@@ -237,7 +319,7 @@ class game:
     def generateNodes(self, genNum):
         checkNodeDBQuery = """SELECT MAX(id) AS max_id
         FROM nodes;"""
-        nodeCount = self.DB.printQuery(self.dbConnection, checkNodeDBQuery)[0][0]
+        nodeCount = self.DB.printQuery(checkNodeDBQuery)[0][0]
         tempNodeDict = {}
         if nodeCount == None:
             nodeCount = 0
