@@ -3,6 +3,7 @@ import secrets
 import random
 import lib.GTDatabase as GTDatabase
 import lib.nodes as nodes
+import sched, time
 
 
 
@@ -15,12 +16,14 @@ class game:
         self.initilizeDatabases()
         self.nodeDict = {}
         self.nodeDict = self.generateNodes(100)
+        #self.tickCounter = 0
     
     def tick(self):
         for node in self.nodeDict:
             nodeUpdateQuery = self.nodeDict[node]['node'].tick()
             self.DB.executeQuery(nodeUpdateQuery, [self.nodeDict[node]['node'].inventory, self.nodeDict[node]['symbol']])
-        print("Tick Succesful")
+        #self.tickCounter = self.tickCounter + 1
+        #print(self.tickCounter)
 
     def initilizeDatabases(self):
         self.DB = GTDatabase.GTDatabase("data/main.sqlite")
@@ -183,8 +186,8 @@ class game:
                 return {"Error": "Not enough cash"}
     
     def getTrans(self, userToken, transToken):
-        transSearchQuery = "SELECT * FROM transports WHERE transToken = (?)"
-        parameters = [transToken]
+        transSearchQuery = "SELECT * FROM transports WHERE transToken = (?) AND userToken = (?)"
+        parameters = [transToken, userToken]
         searchResults = self.DB.printQuery(transSearchQuery, parameters)
         #print(searchResults)
         if searchResults == None or searchResults == []:
@@ -238,6 +241,19 @@ class game:
             return {"Error": "UserToken or transToken is invalid"}
         else:
             searchResults = searchResults[0]
+    
+    def updateNode(self, nodeSymbol, newInv):
+        nodeUpdateQuery = """
+        UPDATE nodes
+        SET
+            inventory = (?)
+        WHERE
+            symbol = (?)
+        """
+        parameters = [newInv, nodeSymbol]
+        self.DB.executeQuery(nodeUpdateQuery, parameters)
+        self.nodeDict[nodeSymbol]['node'].inventory = newInv
+        self.nodeDict[nodeSymbol]['inventory'] = newInv
     
     def genHUBNode(self):
         HUBNode = nodes.node("H.U.B", -1, 0, 0, "HUB", 0, 0, 0, 0)
@@ -308,6 +324,37 @@ class game:
         tempNodeDict = {**tempNodeDict, **self.genHUBNode()}
         return tempNodeDict        
 
+    def getNodesAdmin(self, symbol=None, type=None):
+        safeNodeDict = {}
+        if symbol == None:
+            if type == None:
+                for node in self.nodeDict:
+                    tempNodeDict = self.nodeDict[node]["node"].printSafeNodeDict()
+                    safeNodeDict = {**tempNodeDict, **safeNodeDict}
+            else:
+                for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].type == type:
+
+                        tempNodeDict = node["node"].printSafeNodeDict()
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass
+        elif type == None:
+            for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].symbol == symbol:
+                        tempNodeDict = node["node"].printSafeNodeDict()
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass
+        else:
+            for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].type == type and self.nodeDict[node]["node"].symbol == symbol:
+                        tempNodeDict = node["node"].printSafeNodeDict()
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass        
+        return safeNodeDict
+
     def getNodes(self, symbol=None, type=None):
         safeNodeDict = {}
         if symbol == None:
@@ -317,11 +364,9 @@ class game:
                         self.nodeDict[node]["symbol"]: {
                             "name": self.nodeDict[node]["name"],
                             "type":self.nodeDict[node]["type"],
-                            "rate": self.nodeDict[node]["rate"],
-                            "cost": self.nodeDict[node]["cost"],
                             "symbol": self.nodeDict[node]["symbol"],
-                            "inventory": self.nodeDict[node]["inventory"],
-                            "maxInventory": self.nodeDict[node]["inventoryMax"]
+                            "rLoc": self.nodeDict[node]["rLoc"],
+                            "tLoc": self.nodeDict[node]["tLoc"]
                         }
                     }
                     safeNodeDict = {**tempNodeDict, **safeNodeDict}
@@ -333,11 +378,9 @@ class game:
                             self.nodeDict[node]["symbol"]: {
                                 "name": self.nodeDict[node]["name"],
                                 "type":self.nodeDict[node]["type"],
-                                "rate": self.nodeDict[node]["rate"],
-                                "cost": self.nodeDict[node]["cost"],
                                 "symbol": self.nodeDict[node]["symbol"],
-                                "inventory": self.nodeDict[node]["inventory"],
-                                "maxInventory": self.nodeDict[node]["inventoryMax"]
+                                "rLoc": self.nodeDict[node]["rLoc"],
+                                "tLoc": self.nodeDict[node]["tLoc"]
                             }
                         }
                         safeNodeDict = {**tempNodeDict, **safeNodeDict}
@@ -351,11 +394,9 @@ class game:
                             self.nodeDict[node]["symbol"]: {
                                 "name": self.nodeDict[node]["name"],
                                 "type":self.nodeDict[node]["type"],
-                                "rate": self.nodeDict[node]["rate"],
-                                "cost": self.nodeDict[node]["cost"],
                                 "symbol": self.nodeDict[node]["symbol"],
-                                "inventory": self.nodeDict[node]["inventory"],
-                                "maxInventory": self.nodeDict[node]["inventoryMax"]
+                                "rLoc": self.nodeDict[node]["rLoc"],
+                                "tLoc": self.nodeDict[node]["tLoc"]
                             }
                         }
                         safeNodeDict = {**tempNodeDict, **safeNodeDict}
@@ -369,17 +410,139 @@ class game:
                             self.nodeDict[node]["symbol"]: {
                                 "name": self.nodeDict[node]["name"],
                                 "type":self.nodeDict[node]["type"],
-                                "rate": self.nodeDict[node]["rate"],
-                                "cost": self.nodeDict[node]["cost"],
                                 "symbol": self.nodeDict[node]["symbol"],
-                                "inventory": self.nodeDict[node]["inventory"],
-                                "maxInventory": self.nodeDict[node]["inventoryMax"]
+                                "rLoc": self.nodeDict[node]["rLoc"],
+                                "tLoc": self.nodeDict[node]["tLoc"]
                             }
                         }
                         safeNodeDict = {**tempNodeDict, **safeNodeDict}
                     else:
-                        pass
-
-
-        
+                        pass        
         return safeNodeDict
+
+    def transTravel(self, userToken, transToken, nodeSymbol):
+        transSearchQuery = "SELECT * FROM transports WHERE userToken = (?) AND transToken = (?)"
+        transSearchParameters = [userToken, transToken]
+        transSearchResults = self.DB.printQuery(transSearchQuery, transSearchParameters)
+        nodeSearchQuery = {}
+        print(transSearchResults)
+        try:
+            nodeSearchQuery = self.nodeDict[nodeSymbol]
+        except:
+            return {"Error": f"node: '{nodeSymbol}', does not exist"}
+        
+        if transSearchResults == None or transSearchResults == []:
+            return {"Error": "Either account token or transToken is invalid"}
+        else:
+            transUpdateQuery = f"""
+            UPDATE transports
+            SET
+                rLoc = {nodeSearchQuery["rLoc"]},
+                tLoc = {nodeSearchQuery["tLoc"]}
+            WHERE
+                transToken = (?)
+            """
+            updateParameters = [transToken]
+            self.DB.executeQuery(transUpdateQuery, updateParameters)
+        
+        return self.getTrans(userToken, transToken)
+    
+    def transInvUpdate(self, transToken, newInv):
+        transUpdateQuery = """
+        UPDATE transports
+        SET
+            inventory = (?)
+        WHERE
+            transToken = (?)
+        """
+        parameters = [newInv, transToken]
+
+
+        self.DB.executeQuery(transUpdateQuery, parameters)
+
+    def transTradeCheck(self, userToken, transToken, nodeSymbol):
+        transSearchQuery = "SELECT * FROM transports WHERE userToken = (?) AND transToken = (?)"
+        transSearchParameters = [userToken, transToken]
+        transSearchResults = self.DB.printQuery(transSearchQuery, transSearchParameters)
+        nodeSearchQuery = {}
+        print(transSearchResults)
+        try:
+            nodeSearchQuery = self.nodeDict[nodeSymbol]
+        except:
+            return {"Error": f"node: '{nodeSymbol}', does not exist"}
+        
+        if transSearchResults == None or transSearchResults == []:
+            return {"Error": "Either account token or transToken is invalid"}
+        else:
+            transSearchResults = transSearchResults[0]
+            if transSearchResults[6] == nodeSearchQuery["rLoc"] and transSearchResults[7] == nodeSearchQuery["tLoc"]:
+                return {
+                    nodeSearchQuery['symbol']: {
+                        "name": nodeSearchQuery["name"],
+                        "type": nodeSearchQuery["type"],
+                        "cost": nodeSearchQuery["cost"],
+                        "rate": nodeSearchQuery['rate'],
+                        "inventory": nodeSearchQuery['inventory'],
+                        "maxInventory": nodeSearchQuery["inventoryMax"],
+                        "rLoc": nodeSearchQuery["rLoc"],
+                        "tLoc": nodeSearchQuery['tLoc']
+                    }
+                }
+            else:
+                return {"Error": "Transport is not at node"}
+    
+    def transTradeRecipt(self, userToken, transToken):
+        userDict = self.getAccountInfo(userToken)
+        transDict = self.getTrans(userToken, transToken)
+        return {**userDict, **transDict}
+    
+    def transTrade(self, userToken, transToken, nodeSymbol, amount):
+        accountSearchQuery = "SELECT * FROM accounts WHERE userToken = (?)"
+        parameters = [userToken]
+        accountSearchResults = self.DB.printQuery(accountSearchQuery, parameters)
+        if accountSearchResults == None or accountSearchResults == []:
+            return {"Error": "UserToken is invalid"}
+        else:
+            accountSearchResults = accountSearchResults[0]
+
+        transSearchQuery = "SELECT * FROM transports WHERE userToken = (?) AND transToken = (?)"
+        parameters = [userToken, transToken]
+        transSearchResult = self.DB.printQuery(transSearchQuery, parameters)
+        if transSearchQuery == None or transSearchResult == []:
+            return {"Error": "TransToken is not valid"}
+        else:
+            transSearchResult = transSearchResult[0]
+        
+        tempNode = self.nodeDict[nodeSymbol]['node']
+
+        if tempNode.type == 1:
+            if tempNode.rLoc == transSearchResult[6] and tempNode.tLoc == transSearchResult[7]:
+                if tempNode.inventory >= amount :
+                    if accountSearchResults[3] >= tempNode.cost * amount:
+                        if transSearchResult[3] + amount <= transSearchResult[4]:
+                            self.accountUpdate(userToken, (accountSearchResults[3] - amount * tempNode.cost))
+                            self.updateNode(nodeSymbol, tempNode.inventory - amount)
+                            self.transInvUpdate(transToken, transSearchResult[3] + amount)
+                            return self.transTradeRecipt(userToken, transToken)
+                        else:
+                            return {"Error": "Not enough space in transport"}
+                    else:
+                        return {"Error": "Not enough cash"}
+                else:
+                    return {"Error": "Not engouh inventory"}
+            else: 
+                return {"Error": "Not stopped in the node"}
+        elif tempNode.type == 3:
+            if tempNode.rLoc == transSearchResult[6] and tempNode.tLoc == transSearchResult[7]:
+                if tempNode.inventory + amount <= tempNode.inventoryMax:
+                    if transSearchResult[3] >= amount:
+                        self.accountUpdate(userToken, accountSearchResults[3] + amount * tempNode.cost)
+                        self.updateNode(nodeSymbol, tempNode.inventory + amount)
+                        self.transInvUpdate(transToken, transSearchResult[3] - amount)
+                        return self.transTradeRecipt(userToken, transToken)
+                    else:
+                        return {"Error": "Not enough goods in transport"}
+                else:
+                    return {"Error": "Not enough inventory in node"}
+            else: 
+                return {"Error": "Not stopped in the node"}
