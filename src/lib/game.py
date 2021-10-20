@@ -124,7 +124,7 @@ class game:
         accountSearchQuery = "SELECT * FROM accounts WHERE userToken = (?)"
         parameters = [userToken]
         searchResults = self.DB.printQuery(accountSearchQuery, parameters)
-        if searchResults == None:
+        if searchResults == None or searchResults == []:
             return {"Error": f"UserToken does not exist"}
         else:
             searchResults = searchResults[0]
@@ -156,9 +156,12 @@ class game:
             (?, ?, ?, ?, ?, ?, ?, ?)
         
         """
+
+        newTransToken = secrets.token_hex(16)
+
         parameters = [
             userToken,
-            secrets.token_hex(16),
+            newTransToken,
             0,
             1000,
             1,
@@ -168,20 +171,24 @@ class game:
         ]
 
         self.DB.executeQuery(transInsertQuery, parameters)
+
+        return self.getTrans(userToken, newTransToken)
         
     def purchaseTransport(self, userToken):
         userSearchQuery = "SELECT * FROM accounts WHERE userToken = (?)"
         parameters = [userToken]
         searchResults = self.DB.printQuery(userSearchQuery, parameters)
-        print(searchResults)
         if searchResults == None:
             return {"Error": "UserToken does not exist"}
         else:
             searchResults = searchResults[0]
             if searchResults[3] >= 10000:
-                self.createNewTrans(userToken)
                 self.accountUpdate(userToken, searchResults[3] - 10000)
-                return self.getAccountInfo(userToken)
+                tempDict = {}
+                tempDict = {**self.createNewTrans(userToken), **tempDict}
+                tempDict = {**self.getAccountInfo(userToken), **tempDict}
+                #print(tempDict)
+                return tempDict
             else:
                 return {"Error": "Not enough cash"}
     
