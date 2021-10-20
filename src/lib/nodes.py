@@ -49,7 +49,9 @@ class node:
                 "cost": self.cost,
                 "symbol": self.symbol,
                 "inventory": self.inventory,
-                "inventoryMax": self.inventoryMax
+                "inventoryMax": self.inventoryMax,
+                "rLoc": self.rLoc,
+                "tLoc": self.tLoc
             }
         }
         return tempDict
