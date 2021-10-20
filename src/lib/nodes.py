@@ -36,13 +36,30 @@ class node:
             pass
         if self.type == 3:
             #print("node Ticked")
-            self.inventory = self.inventory - self.rate
+            if self.inventory - self.rate >= 0:
+                self.inventory = self.inventory - self.rate
         return self.updateNodeEntry()
 
     def printNodeDict(self):
         tempDict = {
             self.symbol: {
                 "node": self,
+                "name": self.name,
+                "type": self.type,
+                "rate": self.rate,
+                "cost": self.cost,
+                "symbol": self.symbol,
+                "inventory": self.inventory,
+                "inventoryMax": self.inventoryMax,
+                "rLoc": self.rLoc,
+                "tLoc": self.tLoc
+            }
+        }
+        return tempDict
+
+    def printSafeNodeDict(self):
+        tempDict = {
+            self.symbol: {
                 "name": self.name,
                 "type": self.type,
                 "rate": self.rate,

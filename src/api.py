@@ -31,7 +31,8 @@ parser = reqparse.RequestParser()
 parser.add_argument("token", type=str, help='Unique token used for each account')
 parser.add_argument("symbol", type=str, help="Unique symbol for each node")
 parser.add_argument("type", type=int, help="Node type indicator")
-parser.add_argument('amount', type=int, help="amount of good being traded")
+parser.add_argument('amount', type=int, help="Amount of good being traded")
+parser.add_argument('adminToken', type=str, help="Token used to run admin commands")
 
 #sets the account class
 class createAccount(Resource):
@@ -94,19 +95,30 @@ class transTrade(Resource):
         return gameInstance.transTrade(userToken, transToken, nodeSymbol, amount)
 
 class admin(Resource):
+    pass
 
-    def post(self, adminToken):
+class adminNodes(Resource):
+
+    def get(self):
+        args = parser.parse_args()
+        adminToken = args['adminToken']
         if adminToken == gameAdminToken:
-            gameInstance.tick()
-    
+            args = parser.parse_args()
+            symbol = args["symbol"]
+            type = args['type']
+            return gameInstance.getNodesAdmin(symbol, type)
+        else:
+            return {"Error": "AdminToken is not valid"}
+
 #Creates the account pathing for the api
 api.add_resource(createAccount, '/account/create/<string:username>/')
 api.add_resource(account, '/account/')
-api.add_resource(admin, '/admin/<string:adminToken>/')
+api.add_resource(admin, '/admin/')
 api.add_resource(genTransports, '/account/transports/')
 api.add_resource(specificTransports, "/account/transports/<string:transToken>/")
 api.add_resource(transTrade, '/accounts/transports/<string:transToken>/<string:nodeSymbol>/')
 api.add_resource(nodes, "/nodes/")
+api.add_resource(adminNodes, "/admin/nodes/")
 
 #enables developer mode (TURN OFF IN PROD!!!)
 if __name__ == '__main__':

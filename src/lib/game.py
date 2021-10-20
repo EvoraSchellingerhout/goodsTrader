@@ -22,7 +22,7 @@ class game:
         for node in self.nodeDict:
             nodeUpdateQuery = self.nodeDict[node]['node'].tick()
             self.DB.executeQuery(nodeUpdateQuery, [self.nodeDict[node]['node'].inventory, self.nodeDict[node]['symbol']])
-        self.tickCounter = self.tickCounter + 1
+        #self.tickCounter = self.tickCounter + 1
         #print(self.tickCounter)
 
     def initilizeDatabases(self):
@@ -323,6 +323,37 @@ class game:
                 tempNodeDict = {**self.generateNode(), **tempNodeDict}
         tempNodeDict = {**tempNodeDict, **self.genHUBNode()}
         return tempNodeDict        
+
+    def getNodesAdmin(self, symbol=None, type=None):
+        safeNodeDict = {}
+        if symbol == None:
+            if type == None:
+                for node in self.nodeDict:
+                    tempNodeDict = self.nodeDict[node]["node"].printSafeNodeDict()
+                    safeNodeDict = {**tempNodeDict, **safeNodeDict}
+            else:
+                for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].type == type:
+
+                        tempNodeDict = node["node"].printSafeNodeDict()
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass
+        elif type == None:
+            for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].symbol == symbol:
+                        tempNodeDict = node["node"].printSafeNodeDict()
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass
+        else:
+            for node in self.nodeDict:
+                    if self.nodeDict[node]["node"].type == type and self.nodeDict[node]["node"].symbol == symbol:
+                        tempNodeDict = node["node"].printSafeNodeDict()
+                        safeNodeDict = {**tempNodeDict, **safeNodeDict}
+                    else:
+                        pass        
+        return safeNodeDict
 
     def getNodes(self, symbol=None, type=None):
         safeNodeDict = {}
