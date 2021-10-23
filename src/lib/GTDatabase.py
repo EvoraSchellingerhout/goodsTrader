@@ -16,7 +16,7 @@ class GTDatabase:
             DBCursor.execute(query, parameters)
             self.DB.commit()
         except sqlite3.Error as e:
-            print(f"Error: {e}, has occured durring command execution")
+            print(f"Error: {e}, has occured durring command execution\nCommand: {query}")
             return False
 
     def printQuery(self, query, parameters=[]):
@@ -29,5 +29,5 @@ class GTDatabase:
             result = DBCursor.fetchall()
             return result
         except sqlite3.Error as e:
-            print(f"Error: {e}, has occured durring printing execution")
+            print(f"Error: {e}, has occured durring printing execution\nCommand: {query}")
             return False

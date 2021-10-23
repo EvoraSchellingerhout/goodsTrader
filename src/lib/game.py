@@ -1,11 +1,12 @@
 import sqlite3
 import secrets
 import random
+import math
 import lib.GTDatabase as GTDatabase
 import lib.nodes as nodes
+from datetime import datetime, timedelta
 import time
-
-
+from lib.polarDistance import polarDistance
 
 
 class game:
@@ -23,7 +24,6 @@ class game:
             nodeUpdateQuery = self.nodeDict[node]['node'].tick()
             self.DB.executeQuery(nodeUpdateQuery, [self.nodeDict[node]['node'].inventory, self.nodeDict[node]['symbol']])
         #self.tickCounter = self.tickCounter + 1
-        #print(self.tickCounter)
 
     def initilizeDatabases(self):
         self.DB = GTDatabase.GTDatabase("data/main.sqlite")
@@ -72,8 +72,8 @@ class game:
             speed INTEGER NOT NULL,
             rLoc INTEGER NOT NULL,
             tLoc INTEGER NOT NULL,
-            status TEXT NOT NULL,
-            travelEndTime TEXT,
+            status INT NOT NULL,
+            arrivalTime TEXT
         );
         """
         self.DB.executeQuery(createTransTableQuery)
@@ -95,7 +95,6 @@ class game:
         VALUES
             ( ?, ?, 100000)
         """
-        #print(accountCreationQuery)
 
         self.DB.executeQuery(accountCreationQuery, [username, tempToken])
         
@@ -152,9 +151,9 @@ class game:
     def createNewTrans(self, userToken):
         transInsertQuery = """
         INSERT INTO
-            transports (userToken, transToken, inventory, invMax, speed, rLoc, tLoc, status)
+            transports (userToken, transToken, inventory, invMax, speed, rLoc, tLoc, status, arrivalTime)
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?)
+            (?, ?, ?, ?, ?, ?, ?, ?, ?)
         
         """
 
@@ -168,7 +167,8 @@ class game:
             1,
             0,
             0,
-            "Stopped"
+            0,
+            ""
         ]
 
         self.DB.executeQuery(transInsertQuery, parameters)
@@ -188,24 +188,74 @@ class game:
                 tempDict = {}
                 tempDict = {**self.createNewTrans(userToken), **tempDict}
                 tempDict = {**self.getAccountInfo(userToken), **tempDict}
-                #print(tempDict)
                 return tempDict
             else:
                 return {"Error": "Not enough cash"}
     
+    def updateTransTravel(self, transToken):
+        if type(transToken) != str:
+            transToken= transToken[0]
+        transSearchQuery = "SELECT * FROM transports WHERE transToken = (?)"
+        parameters = [transToken]
+        searchResults = self.DB.printQuery(transSearchQuery, parameters)
+        if searchResults == None or searchResults == []:
+            return False
+        else:
+            searchResults = searchResults[0]
+            if searchResults[8] == 1 and datetime.fromisoformat(searchResults[9]) <= datetime.now():
+                transUpdateQuery = """
+                UPDATE transports
+                SET
+                    status = 0,
+                    arrivalTime = NULL
+                WHERE
+                    transToken = (?)
+                """
+                self.DB.executeQuery(transUpdateQuery, parameters)
+            else:
+                return False
+
+    def updateAllTransTravel(self, userToken):
+        searchQuey = "SELECT transToken FROM transports WHERE userToken = (?)"
+        parameters = [userToken]
+        searchResults = self.DB.printQuery(searchQuey, parameters)
+        if searchResults == None or searchResults == []:
+            return False
+        else:
+            for tran in searchResults:
+                self.updateTransTravel(tran)
+            return True
+    
+    def transIsTraveling(self, transToken):
+        transSearchQuery = "SELECT * FROM transports WHERE transToken = (?)"
+        parameters = [transToken]
+        searchResults = self.DB.printQuery(transSearchQuery, parameters)
+        if searchResults == None or searchResults == []:
+            return False
+        else:
+            searchResults = searchResults[0]
+            tempArrivalTime = datetime.fromisoformat(searchResults[9])
+            if tempArrivalTime <= datetime.now():
+                self.updateTransTravel(transToken)
+                return False
+            else:
+                return True
+            
     def getTrans(self, userToken, transToken):
+        self.updateTransTravel(transToken)
         transSearchQuery = "SELECT * FROM transports WHERE transToken = (?) AND userToken = (?)"
         parameters = [transToken, userToken]
         searchResults = self.DB.printQuery(transSearchQuery, parameters)
-        #print(searchResults)
         if searchResults == None or searchResults == []:
             return {"Error": "Transport does not exist"}
         else:
             searchResults = searchResults[0]
-            if searchResults[9] == None or searchResults[9] == "":
+            self.updateTransTravel(searchResults[2])
+            if searchResults[8] == 0:
                 travelTimeLeft = None
             else:
-                pass
+                travelTimeLeft = math.ceil((datetime.fromisoformat(searchResults[9]) - datetime.now()).total_seconds())
+            
             return {
                 "Transport": {
                     "userToken": searchResults[1],
@@ -217,20 +267,24 @@ class game:
                     "tLoc": searchResults[7],
                     "status": searchResults[8],
                     "travelEndTime": searchResults[9],
-                    "travelTimeLeft": 0
+                    "travelTimeLeft": travelTimeLeft
                 }
             }
     
     def getAllTrans(self, userToken):
+        self.updateAllTransTravel(userToken)
         transSearchQuery = "SELECT * FROM transports WHERE userToken = (?)"
         parameters = [userToken]
         searchResults = self.DB.printQuery(transSearchQuery, parameters)
-        #print(searchResults)
         if searchResults == None:
             return {"Error": "Either Token is bad or no transports exist for the account"}
         else:
             tranDict = {}
             for tran in searchResults:
+                if tran[8] != 1:
+                    travelTimeLeft = None
+                else:
+                    travelTimeLeft = math.ceil((datetime.fromisoformat(tran[9])- datetime.now()).total_seconds())
                 tempTranDict = {
                     tran[2]: {
                         "id": tran[2],
@@ -239,22 +293,13 @@ class game:
                         "speed": tran[5],
                         "rLoc": tran[6],
                         "tLoc": tran[7],
-                        "status": tran[8]
+                        "status": tran[8],
+                        "arrivalTime": tran[9],
+                        "travelTimeLeft": travelTimeLeft
                     }
                 }
-                print(tempTranDict)
                 tranDict = {**tempTranDict, **tranDict}
-            #print(tranDict)
             return tranDict
-    
-    def transTravel(self, userToken, transToken):
-        tranSearchQuery = "SELECT * FROM transports WHERE transToken = (?) AND userToken = (?)"
-        parameters = [transToken, userToken]
-        searchResults = self.DB.printQuery(tranSearchQuery, parameters)
-        if searchResults == None or searchResults == []:
-            return {"Error": "UserToken or transToken is invalid"}
-        else:
-            searchResults = searchResults[0]
     
     def updateNode(self, nodeSymbol, newInv):
         nodeUpdateQuery = """
@@ -317,9 +362,7 @@ class game:
         inventory = random.randint(500, 5000)
         newNode = nodes.node(name, type, rate, cost, symbol, inventory, inventoryMax, rLoc, tLoc)
         newNodeDict = newNode.printNodeDict()
-        #print(newNodeDict)
         self.initilizeNode(newNode)
-        #print(newNode.printNodeDict())
         return newNodeDict
     
     def generateNodes(self, genNum):
@@ -439,7 +482,6 @@ class game:
         transSearchParameters = [userToken, transToken]
         transSearchResults = self.DB.printQuery(transSearchQuery, transSearchParameters)
         nodeSearchQuery = {}
-        print(transSearchResults)
         try:
             nodeSearchQuery = self.nodeDict[nodeSymbol]
         except:
@@ -448,15 +490,23 @@ class game:
         if transSearchResults == None or transSearchResults == []:
             return {"Error": "Either account token or transToken is invalid"}
         else:
+            transSearchResults = transSearchResults[0]
+            totalTravelDistance = polarDistance(transSearchResults[6], transSearchResults[7], nodeSearchQuery["rLoc"], nodeSearchQuery["tLoc"])
+            totalTravelTime = totalTravelDistance / transSearchResults[5]
+            tempDelta = timedelta(seconds=totalTravelTime)
+            arrivalDatetime = datetime.now() + tempDelta
+            arrivalTime = arrivalDatetime.isoformat(sep="T")
             transUpdateQuery = f"""
             UPDATE transports
             SET
+                arrivalTime = (?),
+                status = 1,
                 rLoc = {nodeSearchQuery["rLoc"]},
                 tLoc = {nodeSearchQuery["tLoc"]}
             WHERE
                 transToken = (?)
             """
-            updateParameters = [transToken]
+            updateParameters = [arrivalTime, transToken]
             self.DB.executeQuery(transUpdateQuery, updateParameters)
         
         return self.getTrans(userToken, transToken)
@@ -475,11 +525,11 @@ class game:
         self.DB.executeQuery(transUpdateQuery, parameters)
 
     def transTradeCheck(self, userToken, transToken, nodeSymbol):
+        self.updateTransTravel(transToken)
         transSearchQuery = "SELECT * FROM transports WHERE userToken = (?) AND transToken = (?)"
         transSearchParameters = [userToken, transToken]
         transSearchResults = self.DB.printQuery(transSearchQuery, transSearchParameters)
         nodeSearchQuery = {}
-        print(transSearchResults)
         try:
             nodeSearchQuery = self.nodeDict[nodeSymbol]
         except:
@@ -489,7 +539,8 @@ class game:
             return {"Error": "Either account token or transToken is invalid"}
         else:
             transSearchResults = transSearchResults[0]
-            if transSearchResults[6] == nodeSearchQuery["rLoc"] and transSearchResults[7] == nodeSearchQuery["tLoc"]:
+            self.updateTransTravel(transToken)
+            if transSearchResults[6] == nodeSearchQuery["rLoc"] and transSearchResults[7] == nodeSearchQuery["tLoc"] and transSearchResults[8] == 0:
                 return {
                     nodeSearchQuery['symbol']: {
                         "name": nodeSearchQuery["name"],
@@ -511,6 +562,8 @@ class game:
         return {**userDict, **transDict}
     
     def transTrade(self, userToken, transToken, nodeSymbol, amount):
+
+        self.updateTransTravel(transToken)
         accountSearchQuery = "SELECT * FROM accounts WHERE userToken = (?)"
         parameters = [userToken]
         accountSearchResults = self.DB.printQuery(accountSearchQuery, parameters)
@@ -526,11 +579,12 @@ class game:
             return {"Error": "TransToken is not valid"}
         else:
             transSearchResult = transSearchResult[0]
+            self.updateTransTravel(transToken)
         
         tempNode = self.nodeDict[nodeSymbol]['node']
 
         if tempNode.type == 1:
-            if tempNode.rLoc == transSearchResult[6] and tempNode.tLoc == transSearchResult[7]:
+            if tempNode.rLoc == transSearchResult[6] and tempNode.tLoc == transSearchResult[7] and transSearchResult[8] == 0:
                 if tempNode.inventory >= amount :
                     if accountSearchResults[3] >= tempNode.cost * amount:
                         if transSearchResult[3] + amount <= transSearchResult[4]:
@@ -547,7 +601,7 @@ class game:
             else: 
                 return {"Error": "Not stopped in the node"}
         elif tempNode.type == 3:
-            if tempNode.rLoc == transSearchResult[6] and tempNode.tLoc == transSearchResult[7]:
+            if tempNode.rLoc == transSearchResult[6] and tempNode.tLoc == transSearchResult[7] and transSearchResult[8] == 0:
                 if tempNode.inventory + amount <= tempNode.inventoryMax:
                     if transSearchResult[3] >= amount:
                         self.accountUpdate(userToken, accountSearchResults[3] + amount * tempNode.cost)
