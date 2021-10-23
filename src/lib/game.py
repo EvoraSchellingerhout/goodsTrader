@@ -32,6 +32,7 @@ class game:
         self.initAccountDB()
         self.initNodeDB()
         self.initTransDB()
+        self.initRefinariesDB()
     
     def initAccountDB(self):
         createAccountTableQuery = """
@@ -79,6 +80,18 @@ class game:
         """
         self.DB.executeQuery(createTransTableQuery)
 
+    def initRefinariesDB(self):
+        createRefinariesTableQuery = """
+        CREATE TABLE IF NOT EXISTS refinaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nodeSymbol TEXT NOT NULL,
+            userToken TEXT NOT NULL,
+            goodsDeposited INTEGER,
+            goodsReady INTEGER
+        )
+        """
+        self.DB.executeQuery(createRefinariesTableQuery)
+    
     def createAccount(self, username):
         username = str(username)
         tempToken = secrets.token_hex(16)
@@ -353,7 +366,7 @@ class game:
     
     def generateNode(self):
         name = "".join(random.choice('AEIOUY')).join(random.choice('aeiouy') for _ in range(random.randint(2, 6)))
-        type = (random.randint(0, 1) * 2) + 1
+        type = random.randint(1, 3)
         rate = random.randint(8, 83)
         baseCost = 100
         symbol = secrets.token_hex(4)
@@ -542,18 +555,22 @@ class game:
             transSearchResults = transSearchResults[0]
             self.updateTransTravel(transToken)
             if transSearchResults[6] == nodeSearchQuery["rLoc"] and transSearchResults[7] == nodeSearchQuery["tLoc"] and transSearchResults[8] == 0:
-                return {
-                    nodeSearchQuery['symbol']: {
-                        "name": nodeSearchQuery["name"],
-                        "type": nodeSearchQuery["type"],
-                        "cost": nodeSearchQuery["cost"],
-                        "rate": nodeSearchQuery['rate'],
-                        "inventory": nodeSearchQuery['inventory'],
-                        "maxInventory": nodeSearchQuery["inventoryMax"],
-                        "rLoc": nodeSearchQuery["rLoc"],
-                        "tLoc": nodeSearchQuery['tLoc']
+                if nodeSearchQuery["type"] == 2:
+
+                    return nodeSearchQuery["node"].printSafeRefNodeDict(userToken, self.DB)
+                else:
+                    return {
+                        nodeSearchQuery['symbol']: {
+                            "name": nodeSearchQuery["name"],
+                            "type": nodeSearchQuery["type"],
+                            "cost": nodeSearchQuery["cost"],
+                            "rate": nodeSearchQuery['rate'],
+                            "inventory": nodeSearchQuery['inventory'],
+                            "maxInventory": nodeSearchQuery["inventoryMax"],
+                            "rLoc": nodeSearchQuery["rLoc"],
+                            "tLoc": nodeSearchQuery['tLoc']
+                        }
                     }
-                }
             else:
                 return {"Error": "Transport is not at node"}
     
