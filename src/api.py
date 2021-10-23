@@ -12,20 +12,6 @@ api = Api(app)
 gameAdminToken = "github"
 gameInstance = game.game(gameAdminToken)
 
-#begin tick schedul
-def every(delay, task):
-  next_time = time.time() + delay
-  while True:
-    time.sleep(max(10, next_time - time.time()))
-    task()
-    
-      # in production code you might want to have this instead of course:
-      # logger.exception("Problem while executing repetitive task.")
-    # skip tasks if we are behind schedule:
-    next_time += (time.time() - next_time) // delay * delay + delay
-
-threading.Thread(target=lambda: every(60, gameInstance.tick)).start()
-
 #setup the argument paerser for api usage
 parser = reqparse.RequestParser()
 parser.add_argument("token", type=str, help='Unique token used for each account')
@@ -97,6 +83,16 @@ class transTrade(Resource):
 class admin(Resource):
     pass
 
+class adminTick(Resource):
+
+    def post(self):
+        args = parser.parse_args()
+        adminToken = args['adminToken']
+        if adminToken == gameAdminToken:
+            return gameInstance.tick()
+        else:
+            return {"Error": "AdminToken is invalid"}
+
 class adminNodes(Resource):
 
     def get(self):
@@ -119,6 +115,7 @@ api.add_resource(specificTransports, "/account/transports/<string:transToken>/")
 api.add_resource(transTrade, '/accounts/transports/<string:transToken>/<string:nodeSymbol>/')
 api.add_resource(nodes, "/nodes/")
 api.add_resource(adminNodes, "/admin/nodes/")
+api.add_resource(adminTick, "/admin/tick/")
 
 #enables developer mode (TURN OFF IN PROD!!!)
 if __name__ == '__main__':
