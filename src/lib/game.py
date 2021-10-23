@@ -23,6 +23,7 @@ class game:
         for node in self.nodeDict:
             nodeUpdateQuery = self.nodeDict[node]['node'].tick()
             self.DB.executeQuery(nodeUpdateQuery, [self.nodeDict[node]['node'].inventory, self.nodeDict[node]['symbol']])
+        return {"Tick": "Succesful"}
         #self.tickCounter = self.tickCounter + 1
 
     def initilizeDatabases(self):
@@ -51,7 +52,7 @@ class game:
             name TEXT NOT NULL,
             type INTEGER NOT NULL,
             rate INTEGER,
-            cost INTEGER NOT NULL,
+            baseCost INTEGER NOT NULL,
             symbol TEXT NOT NULL,
             inventory TEXT NOT NULL,
             invmax TEXT NOT NULL,
@@ -332,7 +333,7 @@ class game:
     def initilizeNode(self, newNode):
         initilizeNodeQuery = """
         INSERT INTO
-            nodes (name, type, rate, cost, symbol, inventory, invmax, rloc, tloc)
+            nodes (name, type, rate, baseCost, symbol, inventory, invmax, rloc, tloc)
         VALUES
             (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
@@ -353,14 +354,14 @@ class game:
     def generateNode(self):
         name = "".join(random.choice('AEIOUY')).join(random.choice('aeiouy') for _ in range(random.randint(2, 6)))
         type = (random.randint(0, 1) * 2) + 1
-        rate = random.randint(500, 5000)
-        cost = 20
+        rate = random.randint(8, 83)
+        baseCost = 100
         symbol = secrets.token_hex(4)
         inventoryMax = 5000
         rLoc = random.randint(1, 100)
         tLoc = random.randint(0, 359)
         inventory = random.randint(500, 5000)
-        newNode = nodes.node(name, type, rate, cost, symbol, inventory, inventoryMax, rLoc, tLoc)
+        newNode = nodes.node(name, type, rate, baseCost, symbol, inventory, inventoryMax, rLoc, tLoc)
         newNodeDict = newNode.printNodeDict()
         self.initilizeNode(newNode)
         return newNodeDict
