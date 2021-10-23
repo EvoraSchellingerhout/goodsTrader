@@ -3,7 +3,7 @@ import secrets
 import random
 import lib.GTDatabase as GTDatabase
 import lib.nodes as nodes
-import sched, time
+import time
 
 
 
@@ -72,7 +72,8 @@ class game:
             speed INTEGER NOT NULL,
             rLoc INTEGER NOT NULL,
             tLoc INTEGER NOT NULL,
-            status TEXT NOT NULL
+            status TEXT NOT NULL,
+            travelEndTime TEXT,
         );
         """
         self.DB.executeQuery(createTransTableQuery)
@@ -201,6 +202,10 @@ class game:
             return {"Error": "Transport does not exist"}
         else:
             searchResults = searchResults[0]
+            if searchResults[9] == None or searchResults[9] == "":
+                travelTimeLeft = None
+            else:
+                pass
             return {
                 "Transport": {
                     "userToken": searchResults[1],
@@ -211,6 +216,8 @@ class game:
                     "rLoc": searchResults[6],
                     "tLoc": searchResults[7],
                     "status": searchResults[8],
+                    "travelEndTime": searchResults[9],
+                    "travelTimeLeft": 0
                 }
             }
     
